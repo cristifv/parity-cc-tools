@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Error')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1 th:text="${status != null ? 'Error ' + status : 'Error'}">Error</h1>
+  <p>Something went wrong. Nothing on this page was sent anywhere.</p>
+  <p><a href="/">Back to the start</a></p>
+</main>
+</body>
+</html>

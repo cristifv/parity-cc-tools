@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Me')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Me</h1>
+  <section class="panel">
+    <dl class="kv">
+      <dt>Username</dt><dd th:text="${operator.username()}"></dd>
+      <dt>Subject</dt><dd th:text="${operator.sub()}"></dd>
+      <dt>Roles</dt><dd th:text="${#strings.listJoin(operator.roles(), ', ')}"></dd>
+      <dt>Capabilities</dt><dd th:text="${operator.capabilities()}"></dd>
+      <dt>Last full sign-in (auth_time)</dt><dd th:text="${operator.authTime()}"></dd>
+      <dt>Methods (amr)</dt><dd th:text="${#strings.listJoin(operator.amr(), ', ')}"></dd>
+      <dt>Version</dt><dd th:text="${toolVersion}"></dd>
+    </dl>
+    <form th:action="@{/logout}" method="post"><button type="submit" class="secondary">Sign out</button></form>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,472 @@
+{
+  "schema_version": 1,
+  "service": "parity-cc-tools",
+  "description": "parity-cc-tools' log events (log-record.v1, parity-contracts CONVENTIONS \"Logging\"), from the 0.16.0 starter, owned here. Nothing is call-scoped: the tool touches no call. Every record of an operator action carries op_id (and saga_id once there is one), so `contract-check --flow <op_id>` follows it across parity-cc-tools and parity-rs. Operators appear as attrs.actor_sub only, never a name or an address. The common events (service.*, config.*, log.dropped, dependency.*) are logging/events.common.v1.json's.",
+  "events": {
+    "http.request": {
+      "description": "One HTTP request served on the UI port: op is the method and the matched route (never the raw path), attrs.status; outcome ok (< 400), refused (4xx), error (5xx, at warn).",
+      "levels": [
+        "info",
+        "warn"
+      ],
+      "requires": [
+        "request_id",
+        "op",
+        "outcome",
+        "duration_ms"
+      ],
+      "attrs": [
+        "status"
+      ]
+    },
+    "auth.login_succeeded": {
+      "description": "An operator signed in to the ops realm (attrs.actor_sub; attrs.step_up true for a fresh login asked by a high-risk action).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "actor_sub"
+      ]
+    },
+    "auth.login_refused": {
+      "description": "A sign-in, a token or a session was refused (attrs.reason: wrong_issuer, wrong_audience, expired, no_ops_role, no_otp, no_subject, session_revoked, login_failed).",
+      "levels": [
+        "warn"
+      ],
+      "attrs": [
+        "reason"
+      ],
+      "dedup": {
+        "window_ms": 10000,
+        "key": [
+          "attrs.reason"
+        ]
+      }
+    },
+    "auth.step_up_required": {
+      "description": "A high-risk action needs a fresh login (auth_time older than attrs.max_age_s): the operator is sent to the ops realm with max_age, and the action's confirmation page resumes after.",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "op_id"
+      ],
+      "attrs": [
+        "action",
+        "actor_sub"
+      ]
+    },
+    "auth.logged_out": {
+      "description": "An operator's sessions ended: a logout here (cause http:logout) or the ops realm's back-channel logout (cause http:backchannel-logout; attrs.sessions).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "actor_sub"
+      ]
+    },
+    "action.requested": {
+      "description": "An operator confirmed an action; its audit row was written before it is sent (attrs.action, attrs.actor_sub, attrs.risk).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "op_id"
+      ],
+      "attrs": [
+        "action",
+        "actor_sub"
+      ]
+    },
+    "action.answered": {
+      "description": "The backend answered an action (outcome ok, or refused with error.code and attrs.rule).",
+      "levels": [
+        "info",
+        "warn"
+      ],
+      "requires": [
+        "op_id",
+        "outcome"
+      ],
+      "attrs": [
+        "action"
+      ]
+    },
+    "action.not_confirmed": {
+      "description": "No answer in time (or the request couldn't be sent: attrs.sent false): the page follows the saga's events by saga_id; retry resends the same ids.",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "op_id"
+      ],
+      "attrs": [
+        "action"
+      ]
+    },
+    "action.refused": {
+      "description": "An action was refused before anything was sent or written (attrs.reason: typed_confirmation, reason_length, force_required, forbidden, stale_form).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "op_id"
+      ],
+      "attrs": [
+        "action",
+        "reason"
+      ]
+    },
+    "action.outcome": {
+      "description": "The action's saga ended (attrs.saga_outcome); written once, by the pod whose operation_outcome insert won.",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "op_id",
+        "saga_id"
+      ],
+      "attrs": [
+        "saga_outcome"
+      ]
+    },
+    "audit.write_failed": {
+      "description": "An audit row (phase requested) could not be written: nothing was sent (fail closed).",
+      "levels": [
+        "error"
+      ],
+      "requires": [
+        "op_id",
+        "error"
+      ],
+      "attrs": [
+        "action"
+      ]
+    },
+    "audit.answer_write_failed": {
+      "description": "The answered row or the outcome row could not be written (the action already ran): the requested row stays and shows as not confirmed (attrs.phase).",
+      "levels": [
+        "error"
+      ],
+      "requires": [
+        "op_id",
+        "error"
+      ],
+      "attrs": [
+        "phase"
+      ]
+    },
+    "audit.partitions_created": {
+      "description": "Monthly audit partitions were created ahead (attrs.created).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "created"
+      ]
+    },
+    "audit.partitions_failed": {
+      "description": "The audit partitions can't be checked or created (error.kind): readiness fails; a month without a partition stops every action (fail closed).",
+      "levels": [
+        "error"
+      ],
+      "requires": [
+        "error"
+      ]
+    },
+    "audit.reconciled": {
+      "description": "At start, answered actions without an outcome were looked up again (attrs.checked, attrs.written).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "checked",
+        "written"
+      ]
+    },
+    "rs.answered": {
+      "description": "parity-rs answered a read (request_id: the command id; op: the command; outcome; duration_ms; zone).",
+      "levels": [
+        "debug"
+      ],
+      "requires": [
+        "request_id",
+        "op",
+        "outcome",
+        "duration_ms"
+      ]
+    },
+    "rs.read_failed": {
+      "description": "A read from parity-rs failed or wasn't answered in time (error.code, op); at error, a request this tool built failed its schema and was not sent (a bug).",
+      "levels": [
+        "warn",
+        "error"
+      ],
+      "requires": [
+        "op",
+        "error"
+      ],
+      "dedup": {
+        "window_ms": 10000,
+        "key": [
+          "op"
+        ]
+      }
+    },
+    "rs.wrong_zone_followed": {
+      "description": "parity-rs answered wrong_zone: the request was sent once more to the owner zone (zone: the first zone, attrs.owner_zone).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "request_id"
+      ],
+      "attrs": [
+        "owner_zone"
+      ]
+    },
+    "rs.reader_assigned": {
+      "description": "A reader (answers or a zone's events) reads attrs.partitions partitions of attrs.topic from the latest offset.",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "topic",
+        "partitions"
+      ]
+    },
+    "rs.reader_failed": {
+      "description": "A reader failed (error.kind); it starts again after a backoff.",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "error"
+      ],
+      "attrs": [
+        "topic"
+      ],
+      "dedup": {
+        "window_ms": 10000,
+        "key": [
+          "attrs.topic"
+        ]
+      }
+    },
+    "rs.record_unreadable": {
+      "description": "An answer or an event that isn't usable JSON was skipped (attrs.topic, attrs.partition, attrs.offset).",
+      "levels": [
+        "warn"
+      ],
+      "attrs": [
+        "topic",
+        "partition",
+        "offset"
+      ],
+      "dedup": {
+        "window_ms": 10000,
+        "key": [
+          "attrs.topic"
+        ]
+      }
+    },
+    "rs.saga_resynced": {
+      "description": "A saga's events had a gap (attrs.seen_seq, attrs.event_seq) or the page reconnected: its state was read again with get_saga.",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "saga_id"
+      ]
+    },
+    "service_op.state_changed": {
+      "description": "A service-control saga moved (from_state, to_state; cause: the observed fact or the operator action; attrs.service_name, attrs.driver, attrs.instance).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "op_id",
+        "saga_id"
+      ],
+      "attrs": [
+        "service_name",
+        "driver"
+      ],
+      "transition": true
+    },
+    "service_op.reapplied": {
+      "description": "A holding service-control saga found its setting changed behind its back (an opensips restart, a chart upgrade) and set it again (attrs.what).",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "op_id",
+        "saga_id"
+      ],
+      "attrs": [
+        "service_name",
+        "driver"
+      ]
+    },
+    "service_op.finished": {
+      "description": "A service-control saga ended (attrs.saga_outcome: done, released, cancelled, failed, aborted).",
+      "levels": [
+        "info",
+        "warn"
+      ],
+      "requires": [
+        "op_id",
+        "saga_id"
+      ],
+      "attrs": [
+        "service_name",
+        "saga_outcome"
+      ]
+    },
+    "health.collected": {
+      "description": "A health snapshot was taken (attrs.instances, attrs.services, duration_ms).",
+      "levels": [
+        "debug"
+      ],
+      "requires": [
+        "duration_ms"
+      ]
+    },
+    "health.probe_failed": {
+      "description": "A health probe failed (attrs.service_name, attrs.probe, error.kind or attrs.status).",
+      "levels": [
+        "warn"
+      ],
+      "attrs": [
+        "service_name"
+      ],
+      "dedup": {
+        "window_ms": 60000,
+        "key": [
+          "attrs.service_name"
+        ]
+      }
+    },
+    "k8s.call_failed": {
+      "description": "A Kubernetes API call failed (op: the call; error.code: the HTTP status class or kind).",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "op",
+        "error"
+      ],
+      "dedup": {
+        "window_ms": 60000,
+        "key": [
+          "op"
+        ]
+      }
+    },
+    "mi.call_failed": {
+      "description": "An opensips management call failed (op: the MI method; error.kind or attrs.status).",
+      "levels": [
+        "warn"
+      ],
+      "requires": [
+        "op",
+        "error"
+      ],
+      "dedup": {
+        "window_ms": 60000,
+        "key": [
+          "op"
+        ]
+      }
+    },
+    "lifecycle.stale_file_removed": {
+      "description": "A healthy or drained file left by an earlier run was removed at the start (attrs.file).",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "file"
+      ]
+    },
+    "lifecycle.file_failed": {
+      "description": "The healthy or drained file couldn't be written or removed (attrs.file, error.kind); the healthy file is tried again (attrs.retry_ms).",
+      "levels": [
+        "error"
+      ],
+      "attrs": [
+        "file"
+      ]
+    },
+    "readiness.gate_started": {
+      "description": "The application started; the readiness gate waits for its checks (attrs.checks) before writing the healthy file.",
+      "levels": [
+        "info"
+      ],
+      "attrs": [
+        "checks"
+      ]
+    },
+    "readiness.passed": {
+      "description": "Every readiness check passes again (service.not_ready names the failing ones).",
+      "levels": [
+        "info"
+      ]
+    },
+    "signal.received": {
+      "description": "SIGTERM or SIGINT (attrs.signal): the first drains (cause signal:<name>), a second exits at once (warn, attrs.exit_code).",
+      "levels": [
+        "info",
+        "warn"
+      ],
+      "attrs": [
+        "signal"
+      ]
+    },
+    "signal.handlers_missing": {
+      "description": "The signal handlers couldn't be installed: Spring's shutdown hook still drains, the exit codes differ.",
+      "levels": [
+        "warn"
+      ]
+    },
+    "drain.completed": {
+      "description": "Every drainable finished in time (the SSE streams closed, the requests in flight done): the drained file is written (attrs.file, duration_ms).",
+      "levels": [
+        "info"
+      ],
+      "requires": [
+        "duration_ms"
+      ],
+      "attrs": [
+        "file"
+      ]
+    },
+    "drain.timed_out": {
+      "description": "The drain didn't finish within the drain timeout (attrs.waiting_for): no drained file, exit 1.",
+      "levels": [
+        "error"
+      ],
+      "attrs": [
+        "waiting_for"
+      ]
+    },
+    "drain.failed": {
+      "description": "Closing the application failed during the drain: exit 1.",
+      "levels": [
+        "error"
+      ],
+      "requires": [
+        "error"
+      ]
+    },
+    "log.external": {
+      "description": "A record of a library the tool uses (Spring, Tomcat, Hikari, Kafka, Flyway): attrs.logger names it, its text is msg.",
+      "levels": [
+        "trace",
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ]
+    }
+  }
+}

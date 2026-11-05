@@ -1,0 +1,184 @@
+# parity-cc-tools (PLAN.md): the internal ops UI. Internal network / VPN only. No secret here: secrets are
+# files in PARITY_CC_TOOLS_SECRETS_DIR, read through configtree, each named after its property:
+#   parity-cc-tools.identity.client-secret   the ops realm client's secret
+# and files named by properties: parity-cc-tools.db.password-file, .session.key-file,
+# .zones.<zone>.kafka.password-file. The service catalogue of each zone is a YAML file
+# (PARITY_CC_TOOLS_CATALOGUE, rendered by parity-deploy as a ConfigMap) holding
+# parity-cc-tools.zones.<zone>.services and .media-nodes.
+spring:
+  application:
+    name: parity-cc-tools
+  config:
+    import:
+      - optional:configtree:${PARITY_CC_TOOLS_SECRETS_DIR:/run/secrets/}
+      - optional:file:${PARITY_CC_TOOLS_CATALOGUE:/etc/parity-cc-tools/catalogue.yaml}
+  main:
+    banner-mode: off
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    # The app role: SELECT/INSERT on the audit tables, SELECT/INSERT/UPDATE on service_op, the session
+    # tables; never an owner.
+    url: ${PARITY_CC_TOOLS_DB_URL:jdbc:postgresql://127.0.0.1:5432/parity_cc_tools}
+    username: ${PARITY_CC_TOOLS_DB_USER:parity_cc_tools_app}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+      validation-timeout: 2000
+  flyway:
+    # Runs in the app only as the owner (parity-cc-tools.db.flyway-user: local-dev, tests). Deployments
+    # migrate apart with the owner role.
+    enabled: ${PARITY_CC_TOOLS_FLYWAY:true}
+    placeholders:
+      appRole: ${parity-cc-tools.db.app-role}
+  session:
+    # Spring Session JDBC; its tables come from Flyway (V3). Idle 30 min (PLAN.md §2); the absolute 8 h
+    # limit is parity-cc-tools.session.absolute-timeout.
+    jdbc:
+      initialize-schema: never
+      cleanup-cron: "0 */5 * * * *"
+    timeout: 30m
+  thymeleaf:
+    mode: HTML
+  mvc:
+    problemdetails:
+      enabled: false
+    async:
+      request-timeout: 16m
+
+server:
+  port: ${PARITY_CC_TOOLS_HTTP_PORT:8095}
+  shutdown: graceful
+  # Behind the internal ingress: scheme and client address from its forwarded headers (Tomcat trusts
+  # only internal proxy addresses).
+  forward-headers-strategy: native
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        # PLAN.md §7: __Host- (Secure, Path=/, no Domain), HttpOnly, SameSite=Strict. Strict works because
+        # the ops realm is on the same site (id.ops.<internal domain>): the login's redirect back carries it.
+        name: __Host-cct_session
+        secure: true
+        http-only: true
+        same-site: strict
+        path: /
+  tomcat:
+    use-relative-redirects: true
+    max-swallow-size: 1MB
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-exception: false
+    include-binding-errors: never
+    whitelabel:
+      enabled: false
+
+management:
+  server:
+    port: ${PARITY_CC_TOOLS_MGMT_PORT:8096}
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health, prometheus
+      path-mapping:
+        prometheus: metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+          additional-path: "management:/livez"
+        readiness:
+          include: readinessState, cctools
+          additional-path: "management:/readyz"
+  metrics:
+    tags:
+      service: ${spring.application.name}
+      instance: ${parity-cc-tools.instance}
+
+parity-cc-tools:
+  environment: ${PARITY_CC_TOOLS_ENVIRONMENT:prod}
+  instance: ${HOSTNAME:cc-tools-local}
+  version: '@project.version@'
+  lifecycle:
+    healthy-file: /tmp/${spring.application.name}.healthy
+    drained-file: /tmp/${spring.application.name}.drained
+    deregistration-delay: 2s
+    drain-timeout: 30s
+  readiness:
+    poll-interval: 500ms
+  db:
+    password-file: ${PARITY_CC_TOOLS_DB_PASSWORD_FILE:}
+    flyway-user: ${PARITY_CC_TOOLS_FLYWAY_USER:}
+    flyway-password-file: ${PARITY_CC_TOOLS_FLYWAY_PASSWORD_FILE:}
+    app-role: ${PARITY_CC_TOOLS_DB_APP_ROLE:parity_cc_tools_app}
+  identity:
+    registration-id: ops
+    # Compared exactly with every token's iss: the ops realm only (a token of realm parity is refused).
+    issuer: ${PARITY_CC_TOOLS_ISSUER:https://id.ops.parity.internal/realms/ops}
+    client-id: parity-cc-tools
+    scopes: [openid]
+    required-role: ops
+    # The realm's AMR mapper puts otp in amr after the OTP form (deploy/keycloak/ops-realm.json).
+    required-amr: otp
+    roles-claim: roles
+    step-up-max-age: 300s
+    session-check-interval: 60s
+    post-logout-path: /logged-out
+  session:
+    absolute-timeout: 8h
+    key-file: ${PARITY_CC_TOOLS_SESSION_KEY_FILE:}
+  routing:
+    replies-topic: replies.parity-cc-tools
+    reads-topic-prefix: tenant.routing.requests.
+    ops-topic-prefix: tenant.routing.ops.requests.
+    events-topic-prefix: tenant.routing.events.
+    answer-timeout: 5s
+    page-size: 50
+  # One block per zone (= cell): its own endpoints and credentials. v1 has one zone, eu1a.
+  zones:
+    eu1a:
+      kafka:
+        bootstrap-servers: ${PARITY_CC_TOOLS_EU1A_KAFKA:127.0.0.1:9092}
+        username: ${PARITY_CC_TOOLS_EU1A_KAFKA_USER:parity-cc-tools}
+        password-file: ${PARITY_CC_TOOLS_EU1A_KAFKA_PASSWORD_FILE:}
+        security-protocol: ${PARITY_CC_TOOLS_EU1A_KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+        create-topics: false
+        send-timeout: 3s
+        client: {}
+      kubernetes:
+        enabled: ${PARITY_CC_TOOLS_EU1A_K8S_ENABLED:true}
+        api-url: ${PARITY_CC_TOOLS_EU1A_K8S_API:https://kubernetes.default.svc}
+        token-file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        ca-file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        request-timeout: 5s
+        watch-timeout: 300s
+      opensips:
+        # Every opensips SBC node of the zone: the media-node driver sets the dispatcher on each.
+        mi-urls: ${PARITY_CC_TOOLS_EU1A_OPENSIPS_MI_URLS:}
+        timeout: 2s
+        partition: default
+        # The opensips pods: their restart or readiness change wakes the held media-node sagas (an SBC node
+        # restarted with persistent_state 0 has every dispatcher entry active again).
+        pod-namespace: ${PARITY_CC_TOOLS_EU1A_OPENSIPS_NAMESPACE:parity-edge}
+        pod-selector: ${PARITY_CC_TOOLS_EU1A_OPENSIPS_SELECTOR:app.kubernetes.io/name=opensips}
+  health:
+    enabled: true
+    interval: 10s
+    probe-timeout: 1s
+    parallelism: 16
+    metrics-max-bytes: 4194304
+  control:
+    enabled: true
+    refresh-interval: 5s
+  audit:
+    partitions-ahead: 3
+    partition-interval: 6h
+    reconcile-days: 30

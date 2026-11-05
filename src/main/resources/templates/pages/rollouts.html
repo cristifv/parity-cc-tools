@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Rollouts')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Rollouts <span class="muted" th:text="${'zone ' + zone}"></span></h1>
+  <table>
+    <thead><tr><th>Saga</th><th>State</th><th>Outcome</th><th>Updated</th></tr></thead>
+    <tbody><tr th:each="g : ${rollouts}">
+      <td class="mono"><a th:href="@{/rollouts/{z}/{id}(z=${zone},id=${g.path('saga_id').asString('')})}" th:text="${g.path('saga_id').asString('')}"></a></td>
+      <td th:text="${g.path('state').asString('')}"></td><td th:text="${g.path('outcome').asString('-')}"></td>
+      <td class="mono" th:text="${g.path('updated_at_ms').asString('')}"></td></tr>
+      <tr th:if="${rollouts.isEmpty()}"><td colspan="4" class="muted">No rollouts.</td></tr></tbody>
+  </table>
+</main>
+</body>
+</html>

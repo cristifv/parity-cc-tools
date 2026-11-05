@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Sign-in refused')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Sign-in refused</h1>
+  <div class="notice error" th:text="${explanation}"></div>
+  <p class="muted mono" th:text="${'reason: ' + reason}"></p>
+  <p><a th:href="@{/oauth2/authorization/ops}">Sign in to the ops realm</a></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,51 @@
+# The service catalogue of zone eu1a in k3s (PLAN.md §6.3), as parity-deploy would render it into the
+# ConfigMap mounted at /etc/parity-cc-tools/catalogue.yaml. A sample from the k3s charts of 2026-11-03:
+# labels, workloads and management ports as the charts define them; k8s-rotation needs the Service
+# selector change (parity.io/rotation: in) first, so only services that have it list that driver.
+parity-cc-tools:
+  zones:
+    eu1a:
+      services:
+        - {name: parity-gateway, namespace: parity-app, selector: app.kubernetes.io/name=parity-gateway, kind: deployment,
+           workload: parity-gateway, k8s-service: parity-gateway, port: 18091, call-path: true, drivers: []}
+        - {name: interaction-engine, namespace: parity-app, selector: app.kubernetes.io/name=interaction-engine, kind: statefulset,
+           workload: interaction-engine, port: 9600, call-path: true, drivers: []}
+        - {name: parity-cc-routing, namespace: parity-app, selector: app.kubernetes.io/name=parity-cc-routing, kind: statefulset,
+           workload: parity-cc-routing, port: 9810, call-path: true, drivers: []}
+        - {name: parity-rs, namespace: parity-app, selector: app.kubernetes.io/name=parity-rs, kind: deployment,
+           workload: parity-rs, port: 9920, call-path: false, drivers: []}
+        - {name: parity-store, namespace: parity-app, selector: app.kubernetes.io/name=parity-store, kind: deployment,
+           workload: parity-store, port: 9910, call-path: false, drivers: []}
+        - {name: parity-store-loader, namespace: parity-app, selector: app.kubernetes.io/name=parity-store-loader, kind: deployment,
+           workload: parity-store-loader, port: 9911, call-path: false, drivers: [k8s-scale], default-replicas: 1}
+        - {name: admin-console, namespace: parity-web, selector: app.kubernetes.io/name=admin-console, kind: deployment,
+           workload: admin-console, k8s-service: admin-console, port: 8081, call-path: false, drivers: []}
+        - {name: frontend, namespace: parity-web, selector: app.kubernetes.io/name=frontend, kind: deployment,
+           workload: frontend, k8s-service: frontend, port: 8081, call-path: false, drivers: []}
+        - name: telephony-controller
+          namespace: parity-media
+          selector: app.kubernetes.io/name=telephony-controller
+          kind: deployment
+          workload: telephony-controller
+          port: 9701
+          call-path: true
+          drivers: []
+          metrics:
+            - {name: telephony_controller_sessions, title: sessions}
+            - {name: telephony_controller_esl_live, title: esl live}
+        - {name: keycloak, namespace: parity-identity, selector: app.kubernetes.io/name=keycloak, kind: deployment,
+           workload: keycloak, port: 9000, livez: /health/live, readyz: /health/ready, call-path: false, drivers: []}
+      media-nodes:
+        - name: media-1
+          namespace: parity-media
+          pod-selector: parity.media/node=media-1
+          call-path: true
+          # opensips's dispatcher (k3s/config/edge/dbtext/dispatcher): set 1 carrier profile, set 2 agents profile.
+          dispatcher:
+            - {set: 1, address: "sip:127.0.0.1:5080"}
+            - {set: 2, address: "sip:127.0.0.1:5090"}
+          gauge:
+            pod-selector: "app.kubernetes.io/name=telephony-controller,parity.media/node=media-1"
+            port: 9701
+            path: /metrics
+            metric: telephony_controller_sessions

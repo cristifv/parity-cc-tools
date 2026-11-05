@@ -1,0 +1,50 @@
+# A ValidatingAdmissionPolicy (admissionregistration.k8s.io/v1, Kubernetes >= 1.30) that limits what
+# parity-cc-tools' service account may change on a pod to the label parity.io/rotation, with the value in
+# or out (PLAN.md §6.4, accepted by the coordinator 2026-11-03). Requested from the platform engineer.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: parity-cc-tools-rotation-label-only
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: is-parity-cc-tools
+      expression: "request.userInfo.username == 'system:serviceaccount:parity-ops:parity-cc-tools'"
+  variables:
+    - name: newLabels
+      expression: "has(object.metadata.labels) ? object.metadata.labels : {}"
+    - name: oldLabels
+      expression: "has(oldObject.metadata.labels) ? oldObject.metadata.labels : {}"
+  validations:
+    - expression: "object.spec == oldObject.spec"
+      message: "parity-cc-tools may not change a pod's spec"
+    - expression: >-
+        (has(object.metadata.annotations) ? object.metadata.annotations : {}) ==
+        (has(oldObject.metadata.annotations) ? oldObject.metadata.annotations : {})
+      message: "parity-cc-tools may not change a pod's annotations"
+    - expression: >-
+        (has(object.metadata.finalizers) ? object.metadata.finalizers : []) ==
+        (has(oldObject.metadata.finalizers) ? oldObject.metadata.finalizers : []) &&
+        (has(object.metadata.ownerReferences) ? object.metadata.ownerReferences : []) ==
+        (has(oldObject.metadata.ownerReferences) ? oldObject.metadata.ownerReferences : [])
+      message: "parity-cc-tools may not change a pod's finalizers or owners"
+    - expression: >-
+        variables.newLabels.all(k, k == 'parity.io/rotation' || (k in variables.oldLabels && variables.oldLabels[k] == variables.newLabels[k])) &&
+        variables.oldLabels.all(k, k == 'parity.io/rotation' || k in variables.newLabels)
+      message: "parity-cc-tools may change only the label parity.io/rotation"
+    - expression: "!('parity.io/rotation' in variables.newLabels) || variables.newLabels['parity.io/rotation'] in ['in', 'out']"
+      message: "parity.io/rotation is in or out"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: parity-cc-tools-rotation-label-only
+spec:
+  policyName: parity-cc-tools-rotation-label-only
+  validationActions: [Deny]

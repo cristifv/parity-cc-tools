@@ -1,0 +1,207 @@
+{
+  "realm": "ops",
+  "displayName": "Parity operations",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+  "organizationsEnabled": false,
+  "internationalizationEnabled": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "minimumQuickLoginWaitSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "passwordPolicy": "length(14) and notUsername and passwordHistory(5)",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyCodeReusable": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 28800,
+  "clientSessionIdleTimeout": 1800,
+  "clientSessionMaxLifespan": 28800,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 28800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "browserFlow": "ops browser",
+  "roles": {
+    "realm": [
+      {
+        "name": "ops",
+        "description": "Platform operations: every capability of parity-cc-tools (PLAN.md §1)"
+      }
+    ]
+  },
+  "scopeMappings": [
+    {
+      "client": "parity-cc-tools",
+      "roles": ["ops"]
+    }
+  ],
+  "requiredActions": [
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": true,
+      "priority": 10,
+      "config": {}
+    },
+    {
+      "alias": "UPDATE_PASSWORD",
+      "name": "Update Password",
+      "providerId": "UPDATE_PASSWORD",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 30,
+      "config": {}
+    }
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "ops browser",
+      "description": "The ops realm's browser flow: an existing SSO cookie, or username + password + OTP (both required)",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "authenticatorFlow": false,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "authenticatorFlow": true,
+          "autheticatorFlow": true,
+          "flowAlias": "ops forms",
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "ops forms",
+      "description": "Username + password, then the one-time code; each sets its amr reference (pwd, otp)",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorConfig": "ops-pwd-amr",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "authenticatorFlow": false,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorConfig": "ops-otp-amr",
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "authenticatorFlow": false,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "ops-pwd-amr",
+      "config": {
+        "default.reference.value": "pwd",
+        "default.reference.maxAge": "28800"
+      }
+    },
+    {
+      "alias": "ops-otp-amr",
+      "config": {
+        "default.reference.value": "otp",
+        "default.reference.maxAge": "28800"
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "parity-cc-tools",
+      "name": "parity-cc-tools",
+      "description": "The internal ops UI (a confidential BFF: the tokens stay on its server)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${PARITY_CC_TOOLS_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": false,
+      "fullScopeAllowed": false,
+      "consentRequired": false,
+      "redirectUris": ["${PARITY_CC_TOOLS_BASE_URL}/login/oauth2/code/ops"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${PARITY_CC_TOOLS_BASE_URL}/logged-out",
+        "backchannel.logout.url": "${PARITY_CC_TOOLS_BACKCHANNEL_BASE_URL}/backchannel-logout",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "true",
+        "use.refresh.tokens": "true",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "oidc.ciba.grant.enabled": "false"
+      },
+      "defaultClientScopes": ["basic", "acr", "profile"],
+      "optionalClientScopes": [],
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "amr",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-amr-mapper",
+          "consentRequired": false,
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

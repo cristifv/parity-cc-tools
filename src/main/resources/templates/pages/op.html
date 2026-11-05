@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Operation')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Operation <span class="mono" th:text="${opId}"></span></h1>
+  <p class="muted">Every record of this action carries this op_id: the audit rows here, the saga's events, and every service's logs (<span class="mono">contract-check --flow</span>).</p>
+  <section class="panel" th:if="${primary != null}">
+    <h2>Progress</h2>
+    <div th:replace="~{fragments/layout :: progressBox(${streamUrl}, ${fragmentUrl}, ${view}, ${opId})}"></div>
+    <form method="post" th:action="@{/ops/{i}/retry(i=${opId})}" th:if="${retryable}">
+      <p class="notice warn">parity-rs didn't confirm this action in time. Its events are still followed; retry resends the same command (the same op_id, saga_id and command id: parity-rs returns the same saga).</p>
+      <button type="submit" class="secondary">Retry</button>
+    </form>
+  </section>
+  <p class="muted" th:if="${primary == null}">This action has no saga to follow.</p>
+  <section class="panel">
+    <h2>Timeline</h2>
+    <table>
+      <thead><tr><th>At (UTC)</th><th>Source</th><th>What</th><th>Detail</th></tr></thead>
+      <tbody><tr th:each="e : ${timeline}"><td class="mono" th:text="${e.at()}"></td><td th:text="${e.source()}"></td>
+        <td th:text="${e.what()}"></td><td th:text="${e.detail() == null ? '' : e.detail()}"></td></tr></tbody>
+    </table>
+    <p><a th:href="@{/audit(opId=${opId})}">The audit rows</a></p>
+  </section>
+</main>
+</body>
+</html>

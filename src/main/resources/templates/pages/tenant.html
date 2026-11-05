@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${route.path('tenant_id').asString('tenant')})}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main th:with="t=${route.path('tenant_id').asString('')}, p=${route.path('placement')}, s=${route.path('active_saga')}">
+  <h1><span class="mono" th:text="${t}">acme</span> <span class="muted" th:text="${route.path('name').asString('')}"></span></h1>
+  <div class="grid">
+    <section class="panel">
+      <h2>Placement</h2>
+      <dl class="kv">
+        <dt>Home zone</dt><dd th:text="${p.path('home_zone').asString('-')}"></dd>
+        <dt>Failover zone</dt><dd th:text="${p.path('failover_zone').asString('-')}"></dd>
+        <dt>Zone / cell</dt><dd th:text="${p.path('zone').asString('-') + ' / ' + p.path('cell').asString('-')}"></dd>
+        <dt>Unit</dt><dd th:text="${p.path('deployment_unit').asString('-')}"></dd>
+        <dt>Media track</dt><dd th:text="${p.path('media_track').asString('-')}"></dd>
+        <dt>Version</dt><dd th:text="${route.path('version').asString('')}"></dd>
+        <dt>Owner zone</dt><dd th:text="${route.path('owner_zone').asString('-')}"></dd>
+        <dt>Tier</dt><dd th:text="${route.path('tier').asString('-')}"></dd>
+        <dt>Pinned</dt><dd th:text="${route.path('pin').isObject() ? 'until ' + route.path('pin').path('until_ms').asString('') : 'no'}"></dd>
+      </dl>
+    </section>
+    <section class="panel">
+      <h2>Assignment and unit</h2>
+      <dl class="kv">
+        <dt>Assigned unit</dt><dd th:text="${route.path('assignment').path('unit').asString('-')}"></dd>
+        <dt>Epoch</dt><dd th:text="${route.path('assignment').path('epoch').asString('-')}"></dd>
+        <dt>Unit role</dt><dd th:text="${route.path('unit').path('role').asString('-')}"></dd>
+        <dt>Release</dt><dd th:text="${route.path('unit').path('release').asString('-')}"></dd>
+        <dt>Ready / health</dt><dd th:text="${route.path('unit').path('ready').asString('-') + ' / ' + route.path('unit').path('health').asString('-')}"></dd>
+      </dl>
+    </section>
+  </div>
+
+  <section class="panel" th:if="${s.isObject()}">
+    <h2>Active operation</h2>
+    <p><span class="badge s-moving" th:text="${s.path('kind').asString('') + ': ' + s.path('state').asString('')}"></span>
+       <a th:href="@{/sagas/{z}/{id}(z=${zone},id=${s.path('saga_id').asString('')})}">follow it live</a></p>
+    <form method="post" th:action="@{/tenants/{z}/{t}/review(z=${zone},t=${t})}">
+      <input type="hidden" name="action" value="cancel">
+      <button type="submit" class="secondary">Cancel this saga…</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Move to another unit</h2>
+    <p class="muted">parity-rs plans it first (a dry run): the review shows the plan, the diff and the warnings.</p>
+    <form method="post" th:action="@{/tenants/{z}/{t}/review(z=${zone},t=${t})}">
+      <input type="hidden" name="action" value="move">
+      <div class="row">
+        <label>Unit
+          <select name="toUnit" th:if="${!units.isEmpty()}">
+            <option th:each="u : ${units}" th:value="${u.path('unit').asString('')}"
+                    th:text="${u.path('unit').asString('') + ' (' + u.path('role').asString('?') + ', ' + u.path('release').asString('?') + ')'}"
+                    th:selected="${u.path('unit').asString('') == p.path('deployment_unit').asString('')}"></option>
+          </select>
+          <input type="text" name="toUnit" th:if="${units.isEmpty()}" placeholder="bin-b">
+        </label>
+        <label>Media track <input type="text" name="mediaTrack" th:value="${p.path('media_track').asString('')}"></label>
+        <label><span>Force (ignore a pin: High risk)</span><input type="checkbox" name="force" value="true"></label>
+      </div>
+      <div class="row">
+        <label>Reason (10-500) <textarea name="reason" required minlength="10" maxlength="500"></textarea></label>
+        <label>Ticket <input type="text" name="ticket" maxlength="100"></label>
+        <button type="submit">Dry run and review</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Move to another zone / switch home zone</h2>
+    <div class="notice warn" th:if="${zoneMove != null}" th:text="${zoneMove}"></div>
+    <form method="post" th:action="@{/tenants/{z}/{t}/review(z=${zone},t=${t})}">
+      <input type="hidden" name="action" value="move_zone">
+      <div class="row">
+        <label>Zone <input type="text" name="toZone" th:value="${p.path('failover_zone').asString('')}" th:disabled="${zoneMove != null}"></label>
+        <label>Unit (optional) <input type="text" name="toUnit" th:disabled="${zoneMove != null}"></label>
+        <label>Reason (10-500) <textarea name="reason" minlength="10" maxlength="500" th:disabled="${zoneMove != null}"></textarea></label>
+        <button type="submit" th:disabled="${zoneMove != null}">Dry run and review</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Failover zone</h2>
+      <form method="post" th:action="@{/tenants/{z}/{t}/review(z=${zone},t=${t})}">
+        <input type="hidden" name="action" value="failover">
+        <div class="row"><label>Failover zone (empty: clear) <input type="text" name="failoverZone" th:value="${p.path('failover_zone').asString('')}"></label>
+          <button type="submit" class="secondary">Review</button></div>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>Pin</h2>
+      <form method="post" th:action="@{/tenants/{z}/{t}/review(z=${zone},t=${t})}" th:if="${!route.path('pin').isObject()}">
+        <input type="hidden" name="action" value="pin">
+        <div class="row"><label>Hours <input type="number" name="pinHours" value="24" min="1" max="720"></label>
+          <button type="submit" class="secondary">Review</button></div>
+      </form>
+      <form method="post" th:action="@{/tenants/{z}/{t}/review(z=${zone},t=${t})}" th:if="${route.path('pin').isObject()}">
+        <input type="hidden" name="action" value="unpin">
+        <button type="submit" class="secondary">Unpin…</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>History</h2>
+    <p class="muted" th:if="${sagasError != null}" th:text="${'Sagas unavailable: ' + sagasError}"></p>
+    <table>
+      <thead><tr><th>Saga</th><th>Kind</th><th>State</th><th>Outcome</th></tr></thead>
+      <tbody><tr th:each="g : ${sagas}">
+        <td class="mono"><a th:href="@{/sagas/{z}/{id}(z=${zone},id=${g.path('saga_id').asString('')})}" th:text="${g.path('saga_id').asString('')}"></a></td>
+        <td th:text="${g.path('kind').asString('')}"></td><td th:text="${g.path('state').asString('')}"></td>
+        <td th:text="${g.path('outcome').asString('-')}"></td></tr></tbody>
+    </table>
+    <h2>Audit</h2>
+    <table>
+      <thead><tr><th>At</th><th>Action</th><th>Phase</th><th>Who</th><th>Outcome</th><th>op_id</th></tr></thead>
+      <tbody><tr th:each="a : ${audit}">
+        <td class="mono" th:text="${a.at()}"></td><td th:text="${a.action()}"></td><td th:text="${a.phase()}"></td>
+        <td th:text="${a.actorUsername()}"></td><td th:text="${a.outcome() == null ? '' : a.outcome()}"></td>
+        <td class="mono"><a th:href="@{/ops/{id}(id=${a.opId()})}" th:text="${a.opId()}"></a></td></tr></tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

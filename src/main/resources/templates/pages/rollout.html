@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Rollout')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main th:with="id=${saga.path('saga_id').asString('')}, st=${saga.path('state').asString('')}">
+  <h1>Rollout <span class="mono" th:text="${id}"></span></h1>
+  <section class="panel">
+    <dl class="kv">
+      <dt>State</dt><dd th:text="${st}"></dd>
+      <dt>Outcome</dt><dd th:text="${saga.path('outcome').asString('-')}"></dd>
+      <dt>Unit / release</dt><dd th:text="${saga.path('unit').asString('-') + ' / ' + saga.path('release').asString('-')}"></dd>
+      <dt>Current ring</dt><dd th:text="${saga.path('ring').asString('-')}"></dd>
+      <dt>Rings</dt><dd th:text="${#strings.listJoin(rings, ' → ')}"></dd>
+      <dt>Reason</dt><dd th:text="${saga.path('reason').asString('-')}"></dd>
+    </dl>
+    <p><a th:href="@{/sagas/{z}/{i}(z=${zone},i=${id})}">Follow it live</a></p>
+  </section>
+  <section class="panel" th:if="${saga.path('outcome').isNull() or saga.path('outcome').isMissingNode()}">
+    <h2>Actions</h2>
+    <form class="inline" method="post" th:action="@{/rollouts/{z}/{i}/review(z=${zone},i=${id})}" th:if="${nextRing != null}">
+      <input type="hidden" name="action" value="advance"><button type="submit" th:text="${'Advance to ring ' + nextRing.get('name') + '…'}">Advance</button></form>
+    <form class="inline" method="post" th:action="@{/rollouts/{z}/{i}/review(z=${zone},i=${id})}" th:if="${st != 'paused'}">
+      <input type="hidden" name="action" value="stop"><button type="submit" class="secondary">Stop (pause)…</button></form>
+    <form class="inline" method="post" th:action="@{/rollouts/{z}/{i}/review(z=${zone},i=${id})}" th:if="${st == 'paused'}">
+      <input type="hidden" name="action" value="resume"><button type="submit" class="secondary">Resume…</button></form>
+    <form class="inline" method="post" th:action="@{/rollouts/{z}/{i}/review(z=${zone},i=${id})}">
+      <input type="hidden" name="action" value="rollback"><button type="submit" class="danger">Roll back…</button></form>
+  </section>
+</main>
+</body>
+</html>

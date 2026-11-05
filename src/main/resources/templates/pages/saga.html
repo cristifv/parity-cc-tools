@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Saga')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Saga <span class="mono" th:text="${saga.path('saga_id').asString('')}"></span></h1>
+  <p class="muted" th:text="${'op_id ' + saga.path('op_id').asString('-') + ' · zone ' + zone}"></p>
+  <p th:if="${saga.path('op_id').isString()}"><a th:href="@{/ops/{i}(i=${saga.path('op_id').asString('')})}">This operation's audit timeline</a></p>
+  <div th:replace="~{fragments/layout :: progressBox(${streamUrl}, ${fragmentUrl}, ${view}, null)}"></div>
+</main>
+</body>
+</html>

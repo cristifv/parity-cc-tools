@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Topology')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Topology <span class="muted" th:text="${'as zone ' + zone + ' sees it'}"></span></h1>
+  <div class="grid">
+    <section class="panel">
+      <h2>Regions</h2>
+      <table><thead><tr><th>Region</th><th>Residency</th><th>Default zone</th></tr></thead>
+        <tbody><tr th:each="r : ${regions.properties()}"><td class="mono" th:text="${r.key}"></td>
+          <td th:text="${r.value.path('residency').asString('-')}"></td><td class="mono" th:text="${r.value.path('default_zone').asString('-')}"></td></tr></tbody></table>
+    </section>
+    <section class="panel">
+      <h2>Zones</h2>
+      <table><thead><tr><th>Zone</th><th>Region</th><th>Failover</th><th>State</th><th>Open</th><th>Media tracks</th></tr></thead>
+        <tbody><tr th:each="z : ${zonesNode.properties()}"><td class="mono" th:text="${z.key}"></td>
+          <td th:text="${z.value.path('region').asString('-')}"></td><td th:text="${z.value.path('failover').asString('-')}"></td>
+          <td th:text="${z.value.path('state').asString('-')}"></td><td th:text="${z.value.path('open').asString('-')}"></td>
+          <td class="mono" th:text="${z.value.path('media_tracks').toString()}"></td></tr></tbody></table>
+    </section>
+  </div>
+  <section class="panel">
+    <h2 th:text="${'Units of ' + zone}">Units</h2>
+    <table><thead><tr><th>Unit</th><th>Role</th><th>Release</th><th>Ready</th><th>Health</th><th>Tenants</th><th>Namespace</th></tr></thead>
+      <tbody><tr th:each="u : ${units}"><td class="mono" th:text="${u.path('unit').asString('')}"></td><td th:text="${u.path('role').asString('-')}"></td>
+        <td class="mono" th:text="${u.path('release').asString('-')}"></td><td th:text="${u.path('ready').asString('-')}"></td>
+        <td th:text="${u.path('health').asString('-')}"></td><td th:text="${u.path('tenant_count').asString('-')}"></td>
+        <td class="mono" th:text="${u.path('namespace').asString('-')}"></td></tr></tbody></table>
+  </section>
+</main>
+</body>
+</html>

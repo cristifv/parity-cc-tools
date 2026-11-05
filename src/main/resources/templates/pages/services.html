@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Services')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Services</h1>
+  <p class="muted" th:text="${'Instances from the last health snapshot (' + (snapshotAt == null ? 'none yet' : snapshotAt) + '); every action reads the live state again before its review.'}"></p>
+  <section class="panel" th:each="s : ${services}">
+    <h2><span th:text="${s.def().name()}"></span> <span class="muted" th:text="${'zone ' + s.zone() + ' · ' + s.def().namespace()}"></span>
+      <span class="badge s-error" th:if="${s.def().callPath()}">call path</span></h2>
+    <p class="muted" th:text="${'drivers: ' + s.def().drivers()}"></p>
+    <table>
+      <thead><tr><th>Pod</th><th>State</th><th>Rotation</th><th>Open saga</th><th>Actions</th></tr></thead>
+      <tbody th:if="${s.health() != null}">
+      <tr th:each="i : ${s.health().instances()}" th:with="op=${s.ops().get(i.pod())}">
+        <td class="mono" th:text="${i.pod()}"></td>
+        <td><span class="badge" th:classappend="${'s-' + i.state().label()}" th:text="${i.state().label()}"></span></td>
+        <td class="mono" th:text="${i.rotation() == null ? 'in' : i.rotation()}"></td>
+        <td><a th:if="${op != null}" th:href="@{/ops/{o}(o=${op.opId()})}" th:text="${op.state()}"></a></td>
+        <td th:if="${s.def().drivers().toString().contains('K8S_ROTATION')}">
+          <form class="inline" method="post" th:action="@{/services/review}" th:if="${op == null and i.rotation() != 'out'}">
+            <input type="hidden" name="zone" th:value="${s.zone()}"><input type="hidden" name="service" th:value="${s.def().name()}">
+            <input type="hidden" name="instance" th:value="${i.pod()}"><input type="hidden" name="action" value="cordon">
+            <button type="submit" class="secondary">Cordon…</button></form>
+          <form class="inline" method="post" th:action="@{/services/review}" th:if="${i.rotation() == 'out' or (op != null and op.state() == 'out_of_rotation')}">
+            <input type="hidden" name="zone" th:value="${s.zone()}"><input type="hidden" name="service" th:value="${s.def().name()}">
+            <input type="hidden" name="instance" th:value="${i.pod()}"><input type="hidden" name="action" value="uncordon">
+            <button type="submit" class="secondary">Uncordon…</button></form>
+          <form class="inline" method="post" th:action="@{/services/review}" th:if="${op != null and op.state() == 'cordoning'}">
+            <input type="hidden" name="zone" th:value="${s.zone()}"><input type="hidden" name="sagaId" th:value="${op.id()}">
+            <input type="hidden" name="action" value="cancel"><button type="submit" class="secondary">Cancel…</button></form>
+        </td>
+        <td th:unless="${s.def().drivers().toString().contains('K8S_ROTATION')}" class="muted">-</td>
+      </tr></tbody>
+    </table>
+    <p th:if="${s.health() == null}" class="muted">Not collected yet.</p>
+    <div th:if="${s.def().drivers().toString().contains('K8S_SCALE')}" th:with="whole=${s.ops().get('*')}">
+      <form class="inline" method="post" th:action="@{/services/review}" th:if="${whole == null}">
+        <input type="hidden" name="zone" th:value="${s.zone()}"><input type="hidden" name="service" th:value="${s.def().name()}">
+        <input type="hidden" name="action" value="stop"><button type="submit" class="danger">Stop the whole service…</button></form>
+      <form class="inline" method="post" th:action="@{/services/review}" th:if="${whole != null and whole.state() == 'stopped'}">
+        <input type="hidden" name="zone" th:value="${s.zone()}"><input type="hidden" name="service" th:value="${s.def().name()}">
+        <input type="hidden" name="action" value="start"><button type="submit">Start it again…</button></form>
+      <form class="inline" method="post" th:action="@{/services/review}" th:if="${whole != null and whole.state() == 'stopping'}">
+        <input type="hidden" name="zone" th:value="${s.zone()}"><input type="hidden" name="sagaId" th:value="${whole.id()}">
+        <input type="hidden" name="action" value="cancel"><button type="submit" class="secondary">Cancel the stop…</button></form>
+      <span th:if="${whole != null}" class="muted"> <a th:href="@{/ops/{o}(o=${whole.opId()})}" th:text="${'saga: ' + whole.state()}"></a></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Media nodes</h2>
+    <p class="muted">Out of rotation = its dispatcher entries inactive on every opensips SBC node of the zone, then its calls end on their own (the active-call gauge reaches 0). A node is never killed.</p>
+    <table>
+      <thead><tr><th>Zone</th><th>Node</th><th>Dispatcher (per SBC node)</th><th>Open saga</th><th>Actions</th></tr></thead>
+      <tbody><tr th:each="m : ${media}">
+        <td class="mono" th:text="${m.zone()}"></td><td class="mono" th:text="${m.node().name()}"></td>
+        <td class="mono"><div th:each="d : ${m.dispatcher()}" th:text="${d.key + ': ' + d.value}"></div><div class="muted" th:if="${m.error() != null}" th:text="${m.error()}"></div></td>
+        <td><a th:if="${m.op() != null}" th:href="@{/ops/{o}(o=${m.op().opId()})}" th:text="${m.op().state()}"></a></td>
+        <td>
+          <form class="inline" method="post" th:action="@{/services/review}" th:if="${m.op() == null}">
+            <input type="hidden" name="zone" th:value="${m.zone()}"><input type="hidden" name="instance" th:value="${m.node().name()}">
+            <input type="hidden" name="action" value="media_out"><button type="submit" class="secondary">Take out of rotation…</button></form>
+          <form class="inline" method="post" th:action="@{/services/review}" th:if="${m.op() != null and m.op().state() == 'out_of_rotation'}">
+            <input type="hidden" name="zone" th:value="${m.zone()}"><input type="hidden" name="instance" th:value="${m.node().name()}">
+            <input type="hidden" name="action" value="media_in"><button type="submit">Back into rotation…</button></form>
+          <form class="inline" method="post" th:action="@{/services/review}" th:if="${m.op() != null and (m.op().state() == 'isolating' or m.op().state() == 'draining')}">
+            <input type="hidden" name="zone" th:value="${m.zone()}"><input type="hidden" name="sagaId" th:value="${m.op().id()}">
+            <input type="hidden" name="action" value="cancel"><button type="submit" class="secondary">Cancel…</button></form>
+        </td></tr>
+        <tr th:if="${media.isEmpty()}"><td colspan="5" class="muted">No media node in the catalogue.</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Recent service-control sagas</h2>
+    <table>
+      <thead><tr><th>Created</th><th>Driver</th><th>Target</th><th>Direction</th><th>State</th><th>Outcome</th><th>By</th></tr></thead>
+      <tbody><tr th:each="o : ${recent}">
+        <td class="mono"><a th:href="@{/ops/{i}(i=${o.opId()})}" th:text="${o.createdAt()}"></a></td>
+        <td th:text="${o.driver().wire()}"></td><td class="mono" th:text="${o.zone() + ' ' + o.service() + ' ' + o.instance()}"></td>
+        <td th:text="${o.direction()}"></td><td th:text="${o.state()}"></td><td th:text="${o.outcome() == null ? 'open' : o.outcome()}"></td>
+        <td th:text="${o.actorUsername()}"></td></tr></tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

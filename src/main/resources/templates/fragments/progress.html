@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- A saga's state, rendered from this pod's projection: for the page, the SSE stream and the polling
+     fallback alike (no link expressions: it is also rendered outside a request). -->
+<div th:fragment="progress">
+  <p>
+    <span class="badge" th:classappend="${view.finished() ? (view.outcome() == 'done' ? 's-ok' : 's-failed') : (view.blocked() ? 's-blocked' : 's-moving')}"
+          th:text="${view.finished() ? view.outcome() : view.state()}">state</span>
+    <span class="mono" th:text="${view.kind()}">unit_move</span>
+    <span class="muted" th:if="${view.tenantId() != null}" th:text="${'tenant ' + view.tenantId()}">tenant</span>
+    <span class="muted" th:text="${'zone ' + view.zone()}">zone</span>
+    <span class="muted mono" th:text="${'saga ' + view.sagaId()}">saga</span>
+  </p>
+  <p th:if="${view.total() != null}" class="muted"
+     th:text="${'progress ' + view.done() + '/' + view.total() + (view.failed() != null and view.failed() > 0 ? ', failed ' + view.failed() : '')}">progress</p>
+  <p th:if="${view.detail() != null}" th:text="${view.detail()}">detail</p>
+  <ul class="steps">
+    <li th:each="s : ${view.steps()}"><span class="at" th:text="${s.time()}"></span><span th:text="${s.state()}">state</span>
+      <span class="muted" th:if="${s.detail() != null}" th:text="${' - ' + s.detail()}"></span></li>
+  </ul>
+  <p th:if="${view.finished() and opId != null}" class="muted">Finished. The audit timeline below has every row of this action.</p>
+</div>
+</body>
+</html>

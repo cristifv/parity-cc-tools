@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Operations')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Operations</h1>
+  <div class="notice warn" th:each="e : ${errors}" th:text="${'zone ' + e.key + ': parity-rs answered ' + e.value}"></div>
+  <h2>parity-rs sagas (blocked first)</h2>
+  <table>
+    <thead><tr><th>Zone</th><th>Saga</th><th>Kind</th><th>Tenant</th><th>State</th><th>Actions</th></tr></thead>
+    <tbody><tr th:each="r : ${rows}" th:with="g=${r.saga()}, id=${r.saga().path('saga_id').asString('')}">
+      <td class="mono" th:text="${r.zone()}"></td>
+      <td class="mono"><a th:href="@{/sagas/{z}/{i}(z=${r.zone()},i=${id})}" th:text="${id}"></a></td>
+      <td th:text="${g.path('kind').asString('')}"></td>
+      <td class="mono" th:text="${g.path('tenant_id').asString('-')}"></td>
+      <td><span class="badge" th:classappend="${r.blocked()} ? 's-blocked' : 's-moving'" th:text="${g.path('state').asString('')}"></span></td>
+      <td>
+        <form class="inline" method="post" th:action="@{/sagas/{z}/{i}/review(z=${r.zone()},i=${id})}" th:if="${r.blocked()}">
+          <input type="hidden" name="action" value="resolve">
+          <select name="resolveAction"><option value="retry_record">retry_record</option><option value="accept_store">accept_store</option></select>
+          <button type="submit" class="danger">Resolve…</button></form>
+        <form class="inline" method="post" th:action="@{/sagas/{z}/{i}/review(z=${r.zone()},i=${id})}" th:if="${g.path('state').asString('') == 'ready_to_cut'}">
+          <input type="hidden" name="action" value="confirm_cutover"><button type="submit" class="danger">Confirm cutover…</button></form>
+        <form class="inline" method="post" th:action="@{/sagas/{z}/{i}/review(z=${r.zone()},i=${id})}">
+          <input type="hidden" name="action" value="cancel"><button type="submit" class="secondary">Cancel…</button></form>
+      </td></tr>
+      <tr th:if="${rows.isEmpty()}"><td colspan="6" class="muted">No active saga.</td></tr></tbody>
+  </table>
+  <h2>Service-control sagas (this tool's)</h2>
+  <table>
+    <thead><tr><th>Zone</th><th>Saga</th><th>Driver</th><th>Target</th><th>State</th><th>Started by</th></tr></thead>
+    <tbody><tr th:each="o : ${serviceOps}">
+      <td class="mono" th:text="${o.zone()}"></td>
+      <td class="mono"><a th:href="@{/ops/{i}(i=${o.opId()})}" th:text="${o.id()}"></a></td>
+      <td th:text="${o.driver().wire()}"></td><td class="mono" th:text="${o.service() + ' ' + o.instance()}"></td>
+      <td th:text="${o.state()}"></td><td th:text="${o.actorUsername()}"></td></tr>
+      <tr th:if="${serviceOps.isEmpty()}"><td colspan="6" class="muted">None open.</td></tr></tbody>
+  </table>
+</main>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Review')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1 th:text="${pending.title()}">Review</h1>
+  <p>
+    Risk: <span th:class="${'risk-' + pending.risk().label()}" th:text="${pending.risk().label()}">medium</span>
+    <span class="muted" th:text="${'· action ' + pending.action().wire() + ' · op_id ' + pending.opId()}"></span>
+    <span class="muted" th:if="${pending.sagaId() != null}" th:text="${'· saga_id ' + pending.sagaId()}"></span>
+  </p>
+  <div class="notice info" th:if="${resumed != null}">You signed in again: confirm once more to send it.</div>
+  <div class="notice error" th:if="${error != null}" th:text="${error}"></div>
+  <div class="notice warn" th:each="w : ${warnings}" th:text="${w}"></div>
+
+  <section class="panel">
+    <h2>What changes</h2>
+    <table class="diff">
+      <thead><tr><th>Field</th><th>Now</th><th>After</th></tr></thead>
+      <tbody><tr th:each="l : ${lines}">
+        <td class="mono" th:text="${l.field()}"></td>
+        <td class="mono" th:text="${l.before()}"></td>
+        <td class="mono" th:classappend="${l.changed()} ? 'changed'" th:text="${l.after()}"></td>
+      </tr></tbody>
+    </table>
+  </section>
+
+  <section class="panel" th:if="${dryRun != null}">
+    <h2>parity-rs's plan (dry run)</h2>
+    <ol><li th:each="s : ${dryRun.path('plan').path('steps')}" th:text="${s.isString() ? s.asString() : s.toString()}"></li></ol>
+  </section>
+
+  <section class="panel" th:if="${!closed}">
+    <h2>Confirm</h2>
+    <form method="post" th:action="${confirmUrl}">
+      <div class="row">
+        <label>Reason (10-500 characters) <textarea name="reason" required minlength="10" maxlength="500" th:text="${form.reason()}"></textarea></label>
+        <label>Ticket <input type="text" name="ticket" maxlength="100" th:value="${form.ticket()}"></label>
+      </div>
+      <div class="row" th:if="${pending.risk().typed()}">
+        <label><span>Type <strong class="mono" th:text="${pending.expectedConfirmation()}">acme</strong> to confirm</span>
+          <input type="text" name="typed" autocomplete="off" th:value="${form.typed()}" th:attr="data-expect=${pending.expectedConfirmation()}"></label>
+      </div>
+      <div class="row" th:if="${pending.forceRequired()}">
+        <label><span class="risk-high">This touches the last ready instance or the call path. Force:</span>
+          <input type="checkbox" name="force" value="true" th:checked="${form.force()}"></label>
+      </div>
+      <p class="muted" th:if="${pending.risk().stepUp()}">High risk: if your last sign-in is older than 5 minutes you'll be asked for your password and one-time code again first.</p>
+      <div class="row">
+        <button type="submit" data-confirm="1" th:classappend="${pending.risk().label() == 'high'} ? 'danger'"
+                th:disabled="${pending.risk().typed() and form.typed() != pending.expectedConfirmation()}">Confirm and send</button>
+        <a th:href="${pending.returnPath()}">Cancel</a>
+      </div>
+    </form>
+  </section>
+  <p th:if="${closed}"><a th:href="${pending.returnPath()}">Back</a>
+    <span th:if="${result != null}"> · <a th:href="@{/ops/{id}(id=${pending.opId()})}">this action's audit</a></span></p>
+</main>
+</body>
+</html>

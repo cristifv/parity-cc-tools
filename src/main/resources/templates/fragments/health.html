@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- The dashboard's table: refreshed every 10 s (a display refresh, never a decision). -->
+<div th:fragment="table" id="health-table" hx-get="/health/table" hx-trigger="every 10s" hx-swap="outerHTML">
+  <p class="muted" th:text="${'Snapshot ' + (snapshot.at() == null ? 'not taken yet' : snapshot.at())}"></p>
+  <section class="panel" th:each="s : ${snapshot.services()}">
+    <h2><span class="badge" th:classappend="${'s-' + s.worst().label()}" th:text="${s.worst().label()}"></span>
+      <span th:text="${s.service()}"></span> <span class="muted" th:text="${'zone ' + s.zone()}"></span>
+      <span class="muted" th:each="c : ${s.counts()}" th:text="${' · ' + c.key.label() + ' ' + c.value}"></span></h2>
+    <p class="notice warn" th:if="${s.error() != null}" th:text="${s.error()}"></p>
+    <table th:if="${!s.instances().isEmpty()}">
+      <thead><tr><th>Pod</th><th>State</th><th>Phase</th><th>Ready</th><th>Restarts</th><th>Last termination</th><th>livez</th><th>readyz</th><th>Metrics</th><th>Node</th></tr></thead>
+      <tbody><tr th:each="i : ${s.instances()}">
+        <td class="mono" th:text="${i.pod()}"></td>
+        <td><span class="badge" th:classappend="${'s-' + i.state().label()}" th:text="${i.state().label()}"></span></td>
+        <td th:text="${i.phase()}"></td><td th:text="${i.podReady()}"></td><td th:text="${i.restarts()}"></td>
+        <td th:text="${i.lastTermination() == null ? '-' : i.lastTermination()}"></td>
+        <td class="mono" th:text="${i.livez().shown()}"></td><td class="mono" th:text="${i.readyz().shown()}"></td>
+        <td class="mono"><div th:each="m : ${i.metrics()}" th:text="${m.key + ' ' + m.value}"></div></td>
+        <td class="mono" th:text="${i.node() == null ? '-' : i.node()}"></td></tr></tbody>
+    </table>
+    <p class="muted" th:if="${s.instances().isEmpty() and s.error() == null}">No pod.</p>
+  </section>
+  <p class="muted" th:if="${snapshot.services().isEmpty()}">No service in the catalogue, or nothing collected yet.</p>
+</div>
+</body>
+</html>

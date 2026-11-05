@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Tenants')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Tenants <span class="muted" th:text="${'zone ' + zone}"></span></h1>
+  <div class="notice error" th:if="${error != null}" th:text="${error}"></div>
+  <form class="panel" method="get" th:action="@{/tenants}">
+    <div class="row">
+      <label>Zone <select name="zone"><option th:each="z : ${zones}" th:value="${z}" th:text="${z}" th:selected="${z == zone}"></option></select></label>
+      <label>Unit <input type="text" name="unit" th:value="${unit}" placeholder="bin-a"></label>
+      <label>Tier <select name="tier"><option value="">any</option><option th:each="t : ${ {'small','mid','enterprise'} }" th:value="${t}" th:text="${t}" th:selected="${t == tier}"></option></select></label>
+      <button type="submit" class="secondary">Filter</button>
+      <label>Tenant id <input type="text" name="q" th:value="${q}" placeholder="acme"></label>
+      <button type="submit">Open</button>
+    </div>
+  </form>
+  <table>
+    <thead><tr><th>Tenant</th><th>Name</th><th>Tier</th><th>Home zone</th><th>Failover</th><th>Zone</th><th>Unit</th><th>Unit release</th><th>Version</th><th>Status</th></tr></thead>
+    <tbody>
+    <tr th:each="r : ${routes}" th:with="p=${r.path('placement')}, s=${r.path('active_saga')}">
+      <td class="mono"><a th:href="@{/tenants/{z}/{t}(z=${zone},t=${r.path('tenant_id').asString('')})}" th:text="${r.path('tenant_id').asString('')}">acme</a></td>
+      <td th:text="${r.path('name').asString('')}"></td>
+      <td th:text="${r.path('tier').asString('')}"></td>
+      <td class="mono" th:text="${p.path('home_zone').asString('-')}"></td>
+      <td class="mono" th:text="${p.path('failover_zone').asString('-')}"></td>
+      <td class="mono" th:text="${p.path('zone').asString('-')}"></td>
+      <td class="mono" th:text="${p.path('deployment_unit').asString('-')}"></td>
+      <td class="mono" th:text="${r.path('unit').path('release').asString('-')}"></td>
+      <td class="mono" th:text="${r.path('version').asString('')}"></td>
+      <td>
+        <span th:if="${s.isObject() and s.path('state').asString('') == 'blocked'}" class="badge s-blocked">blocked</span>
+        <span th:if="${s.isObject() and s.path('state').asString('') != 'blocked'}" class="badge s-moving" th:text="${'moving: ' + s.path('state').asString('')}">moving</span>
+        <span th:if="${!s.isObject() and r.path('pin').isObject()}" class="badge s-pinned">pinned</span>
+        <span th:if="${!s.isObject() and !r.path('pin').isObject()}" class="badge s-ok">idle</span>
+      </td>
+    </tr>
+    <tr th:if="${routes.isEmpty()}"><td colspan="10" class="muted">No tenants match.</td></tr>
+    </tbody>
+  </table>
+  <p class="pager" th:if="${nextAfter != null}"><a th:href="@{/tenants(zone=${zone},unit=${unit},tier=${tier},after=${nextAfter})}">Next page</a></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!-- The shared head and navigation. Scripts only from 'self': the vendored HTMX, its SSE extension and
+     app.js; HTMX's safety settings (no eval, no script tags, same-origin requests only, no inline
+     indicator styles); the CSRF token HTMX sends (PLAN.md §7). -->
+<head th:fragment="head(title)">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title th:text="${title} + ' · parity-cc-tools'">parity-cc-tools</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <link rel="icon" type="image/svg+xml" th:href="@{/img/favicon.svg}">
+  <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"includeIndicatorStyles":false,"historyCacheSize":0,"refreshOnHistoryMiss":true}'>
+  <meta name="csrf-token" th:if="${_csrf != null}" th:content="${_csrf.token}">
+  <meta name="csrf-header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
+  <script th:src="@{/vendor/htmx/htmx.min.js}" defer></script>
+  <script th:src="@{/vendor/htmx/sse.js}" defer></script>
+  <script th:src="@{/js/app.js}" defer></script>
+</head>
+<body>
+<header class="top" th:fragment="nav">
+  <span class="brand">parity-cc-tools</span>
+  <span class="env">ops</span>
+  <nav aria-label="Main" th:if="${operator != null}">
+    <a th:href="@{/tenants}" th:classappend="${path != null and path.startsWith('/tenants')} ? 'active'">Tenants</a>
+    <a th:href="@{/units}" th:classappend="${path != null and (path.startsWith('/units') or path.startsWith('/rollouts'))} ? 'active'">Units &amp; rollouts</a>
+    <a th:href="@{/operations}" th:classappend="${path != null and (path.startsWith('/operations') or path.startsWith('/sagas'))} ? 'active'">Operations</a>
+    <a th:href="@{/services}" th:classappend="${path != null and path.startsWith('/services')} ? 'active'">Services</a>
+    <a th:href="@{/health}" th:classappend="${path != null and path.startsWith('/health')} ? 'active'">Health</a>
+    <a th:href="@{/audit}" th:classappend="${path != null and (path.startsWith('/audit') or path.startsWith('/ops'))} ? 'active'">Audit</a>
+    <a th:href="@{/topology}" th:classappend="${path != null and path.startsWith('/topology')} ? 'active'">Topology</a>
+  </nav>
+  <div class="who" th:if="${operator != null}">
+    <a th:href="@{/me}" th:text="${operator.username()}">jdoe</a>
+    <form th:action="@{/logout}" method="post"><button type="submit" class="secondary">Sign out</button></form>
+  </div>
+</header>
+<!-- A saga's progress (the SSE box): sse-connect streams the fragment; data-poll-url is the polling
+     fallback app.js switches to when the stream fails. -->
+<div th:fragment="progressBox(streamUrl, fragmentUrl, view, opId)" class="progress-box" hx-ext="sse"
+     th:attr="sse-connect=${streamUrl},data-poll-url=${fragmentUrl}" sse-close="done">
+  <div sse-swap="progress" hx-swap="innerHTML">
+    <div th:if="${view != null}" th:replace="~{fragments/progress :: progress}"></div>
+    <p th:if="${view == null}" class="muted">Waiting for the saga's first event…</p>
+  </div>
+</div>
+</body>
+</html>

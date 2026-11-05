@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Health')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Platform health</h1>
+  <p class="muted">Each service's /livez, /readyz and listed metrics, and its pods' Kubernetes status; problems first.</p>
+  <div th:replace="~{fragments/health :: table}"></div>
+</main>
+</body>
+</html>

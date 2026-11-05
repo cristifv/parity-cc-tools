@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Audit row')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Audit row <span class="mono" th:text="${row.id()}"></span></h1>
+  <section class="panel">
+    <dl class="kv">
+      <dt>At</dt><dd th:text="${row.at()}"></dd>
+      <dt>Phase</dt><dd th:text="${row.phase()}"></dd>
+      <dt>Action</dt><dd th:text="${row.action()}"></dd>
+      <dt>op_id</dt><dd><a th:href="@{/ops/{i}(i=${row.opId()})}" th:text="${row.opId()}"></a></dd>
+      <dt>saga_id</dt><dd th:text="${row.sagaId() == null ? '-' : row.sagaId()}"></dd>
+      <dt>Command id</dt><dd th:text="${row.requestId()}"></dd>
+      <dt>Who</dt><dd th:text="${row.actorUsername() + ' (' + row.actorSub() + ') roles ' + row.actorRoles()}"></dd>
+      <dt>Last sign-in</dt><dd th:text="${row.authTime() == null ? '-' : row.authTime()}"></dd>
+      <dt>Why</dt><dd th:text="${row.reason() == null ? '-' : row.reason()}"></dd>
+      <dt>Ticket</dt><dd th:text="${row.ticket() == null ? '-' : row.ticket()}"></dd>
+      <dt>Confirmation</dt><dd th:text="${row.confirmKind() == null ? '-' : row.confirmKind()}"></dd>
+      <dt>Outcome</dt><dd th:text="${row.outcome() == null ? '-' : row.outcome() + (row.errorCode() == null ? '' : ' ' + row.errorCode()) + (row.errorRule() == null ? '' : ' (' + row.errorRule() + ')')}"></dd>
+    </dl>
+  </section>
+  <section class="panel" th:if="${!lines.isEmpty()}">
+    <h2>Before / after</h2>
+    <table class="diff"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead>
+      <tbody><tr th:each="l : ${lines}"><td class="mono" th:text="${l.field()}"></td><td class="mono" th:text="${l.before()}"></td>
+        <td class="mono" th:classappend="${l.changed()} ? 'changed'" th:text="${l.after()}"></td></tr></tbody></table>
+  </section>
+  <section class="panel" th:if="${row.request() != null}">
+    <h2>Command as sent</h2>
+    <pre class="mono" th:text="${row.request().toPrettyString()}"></pre>
+  </section>
+</main>
+</body>
+</html>

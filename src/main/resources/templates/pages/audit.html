@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Audit')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Audit log</h1>
+  <form class="panel" method="get" th:action="@{/audit}">
+    <div class="row">
+      <label>Actor (username) <input type="text" name="actor" th:value="${filter.actor()}"></label>
+      <label>Action <input type="text" name="action" th:value="${filter.action()}" placeholder="tenant.move"></label>
+      <label>Tenant <input type="text" name="tenant" th:value="${filter.tenantId()}"></label>
+      <label>Unit <input type="text" name="unit" th:value="${filter.unit()}"></label>
+      <label>Zone <input type="text" name="zone" th:value="${filter.zone()}"></label>
+      <label>Service <input type="text" name="service" th:value="${filter.service()}"></label>
+      <label>op_id <input type="text" name="opId" th:value="${filter.opId()}"></label>
+      <label>From (UTC day) <input type="date" name="from" th:value="${fromText}"></label>
+      <label>To <input type="date" name="to" th:value="${toText}"></label>
+      <button type="submit">Search</button>
+    </div>
+  </form>
+  <table>
+    <thead><tr><th>At (UTC)</th><th>Phase</th><th>Action</th><th>Who</th><th>Target</th><th>Outcome</th><th>op_id</th><th></th></tr></thead>
+    <tbody><tr th:each="r : ${rows}">
+      <td class="mono" th:text="${r.at()}"></td><td th:text="${r.phase()}"></td><td th:text="${r.action()}"></td>
+      <td th:text="${r.actorUsername()}"></td>
+      <td class="mono" th:text="${(r.zone() == null ? '' : r.zone() + ' ') + (r.tenantId() == null ? '' : r.tenantId() + ' ') + (r.unit() == null ? '' : r.unit() + ' ') + (r.service() == null ? '' : r.service() + ' ') + (r.instance() == null ? '' : r.instance())}"></td>
+      <td><span th:if="${r.outcome() != null}" class="badge" th:classappend="${r.outcome() == 'ok' ? 's-ok' : (r.outcome() == 'error' ? 's-error' : 's-warn')}"
+                th:text="${r.outcome() + (r.errorCode() == null ? '' : ' ' + r.errorCode()) + (r.errorRule() == null ? '' : ' (' + r.errorRule() + ')')}"></span></td>
+      <td class="mono"><a th:href="@{/ops/{i}(i=${r.opId()})}" th:text="${r.opId()}"></a></td>
+      <td><a th:href="@{/audit/rows/{i}(i=${r.id()})}">detail</a></td></tr>
+      <tr th:if="${rows.isEmpty()}"><td colspan="8" class="muted">No row matches.</td></tr></tbody>
+  </table>
+</main>
+</body>
+</html>

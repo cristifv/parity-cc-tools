@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Deployment units')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<main>
+  <h1>Deployment units <span class="muted" th:text="${'zone ' + zone}"></span></h1>
+  <form method="get" th:action="@{/units}" class="row">
+    <label>Zone <select name="zone"><option th:each="z : ${zones}" th:value="${z}" th:text="${z}" th:selected="${z == zone}"></option></select></label>
+    <button type="submit" class="secondary">Show</button> <a th:href="@{/rollouts(zone=${zone})}">Rollouts</a>
+  </form>
+  <table>
+    <thead><tr><th>Unit</th><th>Role</th><th>Release</th><th>Ready</th><th>Health</th><th>Tenants</th><th>Actions</th></tr></thead>
+    <tbody><tr th:each="u : ${units}" th:with="name=${u.path('unit').asString('')}, role=${u.path('role').asString('')}">
+      <td class="mono" th:text="${name}"></td>
+      <td><span class="badge" th:classappend="${role == 'failed' ? 's-failed' : (role == 'draining' ? 's-draining' : 's-ok')}" th:text="${role}"></span></td>
+      <td class="mono" th:text="${u.path('release').asString('-')}"></td>
+      <td th:text="${u.path('ready').asString('-')}"></td>
+      <td th:text="${u.path('health').asString('-')}"></td>
+      <td th:text="${u.path('tenant_count').asString('-')}"></td>
+      <td>
+        <form class="inline" method="post" th:action="@{/units/{z}/{u}/review(z=${zone},u=${name})}" th:if="${role != 'empty' and role != 'failed'}">
+          <input type="hidden" name="action" value="drain">
+          <input type="text" name="toUnit" placeholder="to unit (optional)">
+          <button type="submit" class="secondary">Drain…</button>
+        </form>
+        <form class="inline" method="post" th:action="@{/units/{z}/{u}/review(z=${zone},u=${name})}" th:if="${role == 'failed'}">
+          <input type="hidden" name="action" value="release"><button type="submit" class="secondary">Release…</button>
+        </form>
+        <form class="inline" method="post" th:action="@{/units/{z}/{u}/review(z=${zone},u=${name})}" th:if="${role == 'empty'}">
+          <input type="hidden" name="action" value="start_rollout">
+          <input type="text" name="release" th:value="${u.path('release').asString('')}" placeholder="release">
+          <input type="text" name="rings" value="test:test;internal:internal;early:early;all:percent=100" title="name:select;name:percent=N">
+          <button type="submit">Start rollout…</button>
+        </form>
+      </td>
+    </tr></tbody>
+  </table>
+  <h2>Active rollouts and drains</h2>
+  <table>
+    <thead><tr><th>Saga</th><th>Kind</th><th>State</th></tr></thead>
+    <tbody>
+      <tr th:each="g : ${rollouts}"><td class="mono"><a th:href="@{/rollouts/{z}/{id}(z=${zone},id=${g.path('saga_id').asString('')})}" th:text="${g.path('saga_id').asString('')}"></a></td><td>rollout</td><td th:text="${g.path('state').asString('')}"></td></tr>
+      <tr th:each="g : ${drains}"><td class="mono"><a th:href="@{/sagas/{z}/{id}(z=${zone},id=${g.path('saga_id').asString('')})}" th:text="${g.path('saga_id').asString('')}"></a></td><td>drain</td><td th:text="${g.path('state').asString('')}"></td></tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- log-record.v1 lines on stdout (parity-contracts CONVENTIONS "Logging (log-record.v1)"), masked.
+     Writing never blocks the caller: records go through a bounded queue that drops, and counts,
+     when full; seq, the caller data (warn and above) and dedup (the catalogue's entries) are
+     taken on the caller's thread. No default zone: a record names the zone it acts on (zone), the tool itself runs in the management zone. -->
+<configuration>
+  <springProperty scope="context" name="logService" source="spring.application.name" defaultValue="parity-cc-tools"/>
+  <springProperty scope="context" name="logVersion" source="parity-cc-tools.version" defaultValue="unknown"/>
+  <springProperty scope="context" name="logInstance" source="parity-cc-tools.instance" defaultValue=""/>
+  <property scope="context" name="logZone" value="none"/>
+  <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="parity.cctools.obs.LogRecordEncoder">
+      <service>${logService}</service>
+      <version>${logVersion}</version>
+      <instance>${logInstance}</instance>
+      <zone>${logZone}</zone>
+    </encoder>
+  </appender>
+  <appender name="ASYNC" class="parity.cctools.obs.CountingAsyncAppender">
+    <queueSize>8192</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>true</neverBlock>
+    <maxFlushTime>2000</maxFlushTime>
+    <catalogue>logging/events.parity-cc-tools.v1.json</catalogue>
+    <appender-ref ref="JSON"/>
+  </appender>
+  <!-- The Kafka client logs its whole configuration at info: warnings only. -->
+  <logger name="org.apache.kafka" level="WARN"/>
+  <root level="INFO">
+    <appender-ref ref="ASYNC"/>
+  </root>
+</configuration>
